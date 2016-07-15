@@ -1,9 +1,12 @@
 import github3
 import click
+import gnupg
 import re
 import sys
 import ballsy.options
 import ballsy.config
+
+gpg = gnupg.GPG()
 
 @click.group()
 @click.option('--verbose', '-v', is_flag=True,
@@ -27,7 +30,7 @@ def main(ctx, verbose):
               help='Draft release for tag if not present.')
 @click.option('--no-draft', '-d', is_flag=True,
               help='Do not set draft flag for new releases.')
-@click.option('--repo', required=True,
+@click.option('--repo', '-r', required=True,
               help='Repository to sign releases for.')
 @click.argument('tag', nargs=-1)
 @click.pass_context
@@ -42,6 +45,7 @@ def sign(ctx, only_zip, only_targz, include_tags, no_draft, repo, tag):
     else:
         print('Invalid repository name: ' + repo)
         sys.exit(1)
+
     try:
         gh = github3.login(token=c.token())
         repo = gh.repository(ruser, rrepo)
@@ -49,19 +53,19 @@ def sign(ctx, only_zip, only_targz, include_tags, no_draft, repo, tag):
         print(str(e))
         sys.exit(1)
 
-    #print("tags")
-    #print(repo.ref('tags/' + tag))
+    for t in tag:
+        import tempfile
+        r = repo.release_from_tag(t)
+        tb = tempfile.TemporaryFile()
+        r.archive("tarball", path=tb)
+        for a in r.assets():
+            a.delete()
+        signed_data = gpg.sign_file(tb, keyid='F09F4872!', detach=True)
+        with tempfile.NamedTemporaryFile() as outfile:
+            outfile.write(signed_data.data)
+            outfile.seek(0)
+            r.upload_asset('text/ascii', "v2.0.0.tar.gz.asc", outfile)
 
-    print("releases")
-    for r in repo.releases():
-      print(str(r))
-      print(r.archive("tarball"))
-      for a in r.assets():
-        print(a.name)
-        a.delete()
-      r.upload_asset('text/ascii', "v2.0.0.tar.gz.asc", open('foo.sig'))
-      for a in r.assets():
-        print("-- " + str(a))
 
 @main.command()
 @click.pass_context
