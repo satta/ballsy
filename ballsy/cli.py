@@ -64,17 +64,18 @@ def sign(ctx, only_zip, only_targz, include_tags, no_draft, repo, tag):
     for t in tag:
         r = repo.release_from_tag(t)
         for f, ext in six.iteritems(formats):
+            sigfilename = "{0}.{1}.asc".format(t, ext)
             tb = tempfile.TemporaryFile()
             r.archive(f, path=tb)
             for a in r.assets():
                 print(a.name)
-                if a.name == "{0}.{1}.asc".format(t, ext):
+                if a.name == sigfilename:
                     a.delete()
             signed_data = gpg.sign_file(tb, keyid='F09F4872!', detach=True)
             with tempfile.NamedTemporaryFile() as outfile:
                 outfile.write(signed_data.data)
                 outfile.seek(0)
-                r.upload_asset('text/ascii', "{0}.{1}.asc".format(t, ext), outfile)
+                r.upload_asset('text/ascii', sigfilename, outfile)
 
 
 @main.command()
