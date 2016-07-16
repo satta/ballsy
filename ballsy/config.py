@@ -6,6 +6,7 @@ import subprocess
 
 GITCONFIGLINE = re.compile('^([^=]+)=(.+)$')
 
+
 class Config(object):
 
     def __init__(self):
@@ -20,7 +21,7 @@ class Config(object):
                                        stderr=subprocess.PIPE)
             out, err = process.communicate()
             for l in out.splitlines():
-                m = GITCONFIGLINE.match(l.decode("utf-8") )
+                m = GITCONFIGLINE.match(l.decode("utf-8"))
                 if m:
                     self.gitcfg[m.group(1)] = m.group(2)
         except:
