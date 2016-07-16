@@ -10,6 +10,7 @@ import ballsy.config
 
 gpg = gnupg.GPG()
 
+
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help="Be verbose.")
 @click.pass_context
@@ -18,12 +19,13 @@ def main(ctx, verbose):
     ctx.verbose = verbose
     pass
 
+
 @main.command()
 @click.option('--only-zip', '-z', is_flag=True,
               cls=ballsy.options.MutuallyExclusiveOption,
               help='Only sign the ZIP archive for release.',
               mutually_exclusive=["only-targz"])
-@click.option('--only-targz', '-g' , is_flag=True,
+@click.option('--only-targz', '-g', is_flag=True,
               cls=ballsy.options.MutuallyExclusiveOption,
               help='Only sign the tarball for release.',
               mutually_exclusive=["only-zip"])
@@ -92,7 +94,7 @@ def login(ctx):
 
     user = ''
     while not user:
-       user = prompt('GitHub username: ')
+        user = prompt('GitHub username: ')
 
     pwd = ''
     while not pwd:
@@ -115,8 +117,9 @@ def login(ctx):
         print(str(e))
         sys.exit(1)
 
+
 @main.command()
 @click.pass_context
 def logout(ctx):
     """Log out of GitHub."""
-    c = ballsy.config.Config()
+    # c = ballsy.config.Config()
