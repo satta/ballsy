@@ -1,5 +1,6 @@
 from __future__ import print_function
 import click
+import getpass
 import github3
 import gnupg
 import pkg_resources
@@ -20,6 +21,29 @@ def check_key(gpg, keyid):
         "Invalid keyid: {0} -- not found in keyring".format(keyid))
 
 
+def repo_split(repo):
+    p = re.compile('([^/]+)/(.+)')
+    m = p.match(repo)
+    if m:
+        ruser = m.group(1)
+        rrepo = m.group(2)
+    else:
+        print("Invalid repository name: {0}".format(repo), file=sys.stderr)
+        sys.exit(1)
+    return ruser, rrepo
+
+
+def build_formats(only_targz, only_zip):
+    formats = {}
+    if only_targz:
+        formats = {'tarball': 'tar.gz'}
+    elif only_zip:
+        formats = {'zipball': 'zip'}
+    else:
+        formats = {'tarball': 'tar.gz', 'zipball': 'zip'}
+    return formats
+
+
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help="Be verbose.")
 @click.version_option(version=pkg_resources.require("ballsy")[0].version)
@@ -32,7 +56,7 @@ def main(ctx, verbose):
 
 @main.command()
 @click.option('--key-id', '-k',
-              help='Key ID to use for signing (default: {0}).'.format(
+              help='Key ID to use for signing. (default: {0})'.format(
                   CONFIG.git_config('user.signingkey')),
               required=True, default=CONFIG.git_config('user.signingkey'),
               metavar='<keyid>')
@@ -48,37 +72,37 @@ def main(ctx, verbose):
               help='Draft release for tag if not present.')
 @click.option('--no-draft', '-d', is_flag=True,
               help='Do not set draft flag for new releases.')
-@click.option('--repo', '-r', required=True,
+@click.option('--force', '-f', is_flag=True,
+              help='Force re-signing even when release has signature.')
+@click.option('--repo', '-r', metavar='<user/repository>',
+              cls=ballsy.options.MutuallyExclusiveOption,
+              mutually_exclusive=["remote"],
               help='Repository to sign releases for.')
-@click.argument('tag', nargs=-1)
+@click.option('--remote', '-m', cls=ballsy.options.MutuallyExclusiveOption,
+              metavar='<remote>', mutually_exclusive=["repo"],
+              default='origin',
+              help='Remote specifying repository to sign releases for. ' +
+                   ' (default: origin)')
+@click.argument('tag', required=True, nargs=-1)
 @click.pass_context
-def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, repo, tag):
+def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, force,
+         repo, remote, tag):
     """Sign release(s)."""
-    p = re.compile('([^/]+)/(.+)')
-    m = p.match(repo)
-    if m:
-        ruser = m.group(1)
-        rrepo = m.group(2)
+
+    if remote and CONFIG.remotes[remote]:
+        ruser = CONFIG.remotes[remote][0]
+        rrepo = CONFIG.remotes[remote][1]
     else:
-        print("Invalid repository name: {0}".format(repo), file=sys.stderr)
-        sys.exit(1)
+        ruser, rrepo = repo_split(repo)
 
     try:
         gh = github3.login(token=CONFIG.token())
         repo = gh.repository(ruser, rrepo)
-
-        if only_targz:
-            formats = {'tarball': 'tar.gz'}
-        elif only_zip:
-            formats = {'zipball': 'zip'}
-        else:
-            formats = {'tarball': 'tar.gz', 'zipball': 'zip'}
-
         gpg = gnupg.GPG()
         check_key(gpg, key_id)
         for t in tag:
             r = repo.release_from_tag(t)
-            for f, ext in six.iteritems(formats):
+            for f, ext in six.iteritems(build_formats(only_targz, only_zip)):
                 sigfilename = "{0}.{1}.asc".format(t, ext)
                 tb = tempfile.TemporaryFile()
                 r.archive(f, path=tb)
@@ -100,8 +124,6 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, repo, tag):
 @click.pass_context
 def login(ctx):
     """Log into GitHub and store user credentials."""
-    import getpass
-
     try:
         prompt = raw_input
     except NameError:
@@ -123,6 +145,9 @@ def login(ctx):
 
     try:
         g = github3.login(user, pwd, two_factor_callback=twofa_auth)
+        if CONFIG.has_token():
+            a = g.authorization(CONFIG.id())
+            a.delete()
         auth = g.authorize(user, pwd, ['user', 'repo'], "Ballsy")
         CONFIG.set_token(auth.id, auth.token)
     except RuntimeError as e:

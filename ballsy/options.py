@@ -16,7 +16,7 @@ class MutuallyExclusiveOption(Option):
     def handle_parse_result(self, ctx, opts, args):
         if self.mutually_exclusive.intersection(opts) and self.name in opts:
             raise UsageError(
-                "Illegal usage: `{}` is mutually exclusive with"
+                "Illegal usage: `{}` is mutually exclusive with "
                 "arguments `{}`.".format(
                     self.name,
                     ', '.join(self.mutually_exclusive)

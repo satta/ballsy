@@ -1,13 +1,29 @@
 import configparser
 import os
 import re
+import six
 import stat
 import subprocess
 
 GITCONFIGLINE = re.compile('^([^=]+)=(.+)$')
+GITREMOTEKEY = re.compile('^remote.([^.]+).url')
 
 
 class Config(object):
+
+    def _extract_github_repo(self, url):
+        m = re.match("^git@github.com:([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+).git$",
+                     url) or \
+            re.match("^https://github.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)" +
+                     ".git$", url)
+        return (m.group(1), m.group(2)) if m else None
+
+    def _get_remotes(self):
+        self.remotes = {}
+        for k, v in six.iteritems(self.gitcfg):
+            m = GITREMOTEKEY.match(k)
+            if m:
+                self.remotes[m.group(1)] = self._extract_github_repo(v)
 
     def __init__(self):
         self.fn = os.path.join(os.path.expanduser('~'), '.ballsyrc')
@@ -26,6 +42,7 @@ class Config(object):
                     self.gitcfg[m.group(1)] = m.group(2)
         except:
             pass
+        self._get_remotes()
 
     def git_config(self, val):
         if val in self.gitcfg:
