@@ -1,16 +1,17 @@
-import github3
 import click
+import github3
 import gnupg
 import re
+import six
 import sys
+import tempfile
 import ballsy.options
 import ballsy.config
 
 gpg = gnupg.GPG()
 
 @click.group()
-@click.option('--verbose', '-v', is_flag=True,
-              help="Be verbose.")
+@click.option('--verbose', '-v', is_flag=True, help="Be verbose.")
 @click.pass_context
 def main(ctx, verbose):
     """GitHub release signing tool"""
@@ -53,18 +54,27 @@ def sign(ctx, only_zip, only_targz, include_tags, no_draft, repo, tag):
         print(str(e))
         sys.exit(1)
 
+    if only_targz:
+        formats = {'tarball': 'tar.gz'}
+    elif only_zip:
+        formats = {'zipball': 'zip'}
+    else:
+        formats = {'tarball': 'tar.gz', 'zipball': 'zip'}
+
     for t in tag:
-        import tempfile
         r = repo.release_from_tag(t)
-        tb = tempfile.TemporaryFile()
-        r.archive("tarball", path=tb)
-        for a in r.assets():
-            a.delete()
-        signed_data = gpg.sign_file(tb, keyid='F09F4872!', detach=True)
-        with tempfile.NamedTemporaryFile() as outfile:
-            outfile.write(signed_data.data)
-            outfile.seek(0)
-            r.upload_asset('text/ascii', "v2.0.0.tar.gz.asc", outfile)
+        for f, ext in six.iteritems(formats):
+            tb = tempfile.TemporaryFile()
+            r.archive(f, path=tb)
+            for a in r.assets():
+                print(a.name)
+                if a.name == "{0}.{1}.asc".format(t, ext):
+                    a.delete()
+            signed_data = gpg.sign_file(tb, keyid='F09F4872!', detach=True)
+            with tempfile.NamedTemporaryFile() as outfile:
+                outfile.write(signed_data.data)
+                outfile.seek(0)
+                r.upload_asset('text/ascii', "{0}.{1}.asc".format(t, ext), outfile)
 
 
 @main.command()

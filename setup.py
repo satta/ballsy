@@ -3,7 +3,7 @@ GitHub release signing tool
 """
 from setuptools import find_packages, setup
 
-dependencies = ['click', 'python-gnupg', 'github3.py']
+dependencies = ['click', 'python-gnupg', 'github3.py', 'six']
 
 setup(
     name='ballsy',
