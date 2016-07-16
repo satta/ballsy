@@ -69,9 +69,11 @@ def main(ctx, verbose):
               help='Only sign the tarball for release.',
               mutually_exclusive=["only-zip"])
 @click.option('--include-tags', '-t', is_flag=True,
-              help='Draft release for tag if not present.')
+              help='Create new release for tag if not present.')
 @click.option('--no-draft', '-d', is_flag=True,
               help='Do not set draft flag for new releases.')
+@click.option('--prerelease', '-p', is_flag=True,
+              help='Set prerelease flag for new releases.')
 @click.option('--force', '-f', is_flag=True,
               help='Force re-signing even when release has signature.')
 @click.option('--repo', '-r', metavar='<user/repository>',
@@ -85,11 +87,11 @@ def main(ctx, verbose):
                    ' (default: origin)')
 @click.argument('tag', required=True, nargs=-1)
 @click.pass_context
-def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, force,
-         repo, remote, tag):
+def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
+         force, repo, remote, tag):
     """Sign release(s)."""
 
-    if remote and CONFIG.remotes[remote]:
+    if remote and not repo and CONFIG.remotes[remote]:
         ruser = CONFIG.remotes[remote][0]
         rrepo = CONFIG.remotes[remote][1]
     else:
@@ -102,15 +104,30 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, force,
         check_key(gpg, key_id)
         for t in tag:
             r = repo.release_from_tag(t)
+            if not r:
+                gtag = repo.ref('tags/' + t)
+                if not gtag:
+                    print("tag {0} not found, skipping".format(t),
+                          file=sys.stderr)
+                    next
+                if include_tags:
+                    r = repo.create_release(t, gtag.as_dict()['object']['sha'],
+                                            draft=(not no_draft),
+                                            prerelease=prerelease)
+                else:
+                    print("tag {0} found but --include-tags not given, " +
+                          "not creating release ".format(t), file=sys.stderr)
+                    next
+            assert(r)
             for f, ext in six.iteritems(build_formats(only_targz, only_zip)):
                 sigfilename = "{0}.{1}.asc".format(t, ext)
                 tb = tempfile.TemporaryFile()
                 r.archive(f, path=tb)
                 for a in r.assets():
-                    print(a.name)
                     if a.name == sigfilename:
                         a.delete()
                 signed_data = gpg.sign_file(tb, keyid=key_id, detach=True)
+                print(sigfilename)
                 with tempfile.TemporaryFile() as outfile:
                     outfile.write(signed_data.data)
                     outfile.seek(0)
