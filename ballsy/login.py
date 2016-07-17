@@ -1,6 +1,7 @@
 import getpass
 import github3
 
+
 def login_with_password():
     try:
         prompt = raw_input
@@ -22,11 +23,13 @@ def login_with_password():
         return code
 
     g = github3.login(user, pwd, two_factor_callback=twofa_auth)
-    return g
+    return g, user, pwd
+
 
 def login_with_token(token):
     g = github3.login(token=token)
     return g
+
 
 def logout(github, config):
     if config.has_token():

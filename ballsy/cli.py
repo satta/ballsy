@@ -1,6 +1,5 @@
 from __future__ import print_function
 import click
-import github3
 import gnupg
 import pkg_resources
 import re
@@ -143,7 +142,7 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
 def login(ctx):
     """Log into GitHub and store user credentials."""
     try:
-        g = ballsy.login.login_with_password()
+        g, user, pwd = ballsy.login.login_with_password()
         if CONFIG.has_token():
             ballsy.login.logout(g, CONFIG)
         auth = g.authorize(user, pwd, ['user', 'repo'], "Ballsy")
@@ -152,12 +151,13 @@ def login(ctx):
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
+
 @main.command()
 @click.pass_context
 def logout(ctx):
     """Log out of GitHub and clear user credentials."""
     try:
-        g = ballsy.login.login_with_password()
+        g, user, pwd = ballsy.login.login_with_password()
         ballsy.login.logout(g, CONFIG)
     except RuntimeError as e:
         print(str(e), file=sys.stderr)
