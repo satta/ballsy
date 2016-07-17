@@ -1,6 +1,5 @@
 from __future__ import print_function
 import click
-import getpass
 import github3
 import gnupg
 import pkg_resources
@@ -8,8 +7,9 @@ import re
 import six
 import sys
 import tempfile
-import ballsy.options
 import ballsy.config
+import ballsy.options
+import ballsy.login
 
 CONFIG = ballsy.config.Config()
 
@@ -89,7 +89,7 @@ def main(ctx, verbose):
 @click.pass_context
 def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
          force, repo, remote, tag):
-    """Sign release(s)."""
+    """Sign release(s) and tags."""
 
     if remote and not repo and CONFIG.remotes[remote]:
         ruser = CONFIG.remotes[remote][0]
@@ -98,7 +98,7 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
         ruser, rrepo = repo_split(repo)
 
     try:
-        gh = github3.login(token=CONFIG.token())
+        gh = ballsy.login.login_with_token(CONFIG.token())
         repo = gh.repository(ruser, rrepo)
         gpg = gnupg.GPG()
         check_key(gpg, key_id)
@@ -106,18 +106,19 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
             r = repo.release_from_tag(t)
             if not r:
                 gtag = repo.ref('tags/' + t)
-                if not gtag:
+                if not (gtag and 'refs/tags/{0}'.format(t) in str(gtag)):
                     print("tag {0} not found, skipping".format(t),
                           file=sys.stderr)
-                    next
+                    continue
+                assert(gtag)
                 if include_tags:
                     r = repo.create_release(t, gtag.as_dict()['object']['sha'],
                                             draft=(not no_draft),
                                             prerelease=prerelease)
                 else:
-                    print("tag {0} found but --include-tags not given, " +
-                          "not creating release ".format(t), file=sys.stderr)
-                    next
+                    print(('tag {0} found but --include-tags not given, ' +
+                          'not creating release').format(t), file=sys.stderr)
+                    continue
             assert(r)
             for f, ext in six.iteritems(build_formats(only_targz, only_zip)):
                 sigfilename = "{0}.{1}.asc".format(t, ext)
@@ -142,31 +143,22 @@ def sign(ctx, key_id, only_zip, only_targz, include_tags, no_draft, prerelease,
 def login(ctx):
     """Log into GitHub and store user credentials."""
     try:
-        prompt = raw_input
-    except NameError:
-        prompt = input
-
-    user = ''
-    while not user:
-        user = prompt('GitHub username: ')
-
-    pwd = ''
-    while not pwd:
-        pwd = getpass.getpass('GitHub password for {0}: '.format(user))
-
-    def twofa_auth():
-        code = ''
-        while not code:
-            code = prompt('Enter 2FA code: ')
-        return code
-
-    try:
-        g = github3.login(user, pwd, two_factor_callback=twofa_auth)
+        g = ballsy.login.login_with_password()
         if CONFIG.has_token():
-            a = g.authorization(CONFIG.id())
-            a.delete()
+            ballsy.login.logout(g, CONFIG)
         auth = g.authorize(user, pwd, ['user', 'repo'], "Ballsy")
         CONFIG.set_token(auth.id, auth.token)
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+
+@main.command()
+@click.pass_context
+def logout(ctx):
+    """Log out of GitHub and clear user credentials."""
+    try:
+        g = ballsy.login.login_with_password()
+        ballsy.login.logout(g, CONFIG)
     except RuntimeError as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)
