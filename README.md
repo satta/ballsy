@@ -34,7 +34,7 @@ You'll need to log in to GitHub once:
     $ ballsy login
 
 which will ask for your user credentials, and then obtain a token for future
-logins (stored in `~/.ballsyrc`). 2FA authentication is supported.
+logins (stored in `~/.ballsyrc`). 2FA by phone is supported.
 
 After logging in, signing is as easy as:
 
