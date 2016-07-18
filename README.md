@@ -6,7 +6,7 @@ the automatically generated release tarballs on GitHub with developer's OpenPGP
 keys. Usually that would involve:
 
   - pushing a tag
-  - going to the GitHib web page and creating a release
+  - navigating to the GitHub web page and creating a release
   - downloading their tarball
   - signing the tarball
   - uploading the detached ASCII signature to the release page as an asset
