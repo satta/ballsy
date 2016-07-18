@@ -1,8 +1,6 @@
 # ballsy
 [![Latest version](https://img.shields.io/pypi/v/ballsy.svg)](https://pypi.python.org/pypi/ballsy)
-
-[![License](https://img.shields.io/badge/Licence-Apache2-brightgreen.svg)](https://opensource.org/licenses/BSD-2-Clause)
-
+[![License](https://img.shields.io/badge/Licence-BSD-brightgreen.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Downloads](https://img.shields.io/pypi/dm/ballsy.svg)](https://pypi.python.org/pypi/ballsy)
 
 Ballsy is a GitHub release tarball signing tool. It tries to promote signing of
