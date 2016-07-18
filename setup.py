@@ -22,6 +22,7 @@ setup(
     zip_safe=False,
     platforms='any',
     install_requires=dependencies,
+    setup_requires=['pypandoc'],
     entry_points="""
         [console_scripts]
         ballsy=ballsy.cli:main
